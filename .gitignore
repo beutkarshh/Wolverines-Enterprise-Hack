@@ -6,6 +6,15 @@ yarn-error.log*
 
 # Environment variables (contains API keys)
 .env
+.env.local
+.env.*.local
+*.env
+
+# Tunneling tools (contain temporary URLs)
+ngrok
+ngrok.exe
+ngrok.zip
+*.ngrok.io
 
 # Database files
 *.db

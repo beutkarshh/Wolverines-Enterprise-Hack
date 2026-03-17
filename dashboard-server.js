@@ -14,6 +14,7 @@ import CharacterManager from './characterManager.js';
 import MultilingualVoiceEngine from './voiceEngine.js';
 import TwilioCallManager from './twilioIntegration.js';
 import ExotelCaller from './exotelIntegration.js';
+import WhatsAppManager from './whatsappIntegration.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -44,6 +45,7 @@ let characterManager = null;
 let voiceEngine = null;
 let twilioManager = null;
 let exotelCaller = null;
+let whatsappManager = null;
 let automationEnabled = false;
 
 // Initialize Systems
@@ -60,6 +62,7 @@ async function initializeSystems() {
     characterManager = new CharacterManager();
     voiceEngine = new MultilingualVoiceEngine();
     exotelCaller = new ExotelCaller();
+    whatsappManager = new WhatsAppManager();
 
     // Initialize queue processor
     queueProcessor = new QueueProcessor();
@@ -701,6 +704,143 @@ app.post('/api/exotel/bulk-call', async (req, res) => {
 
 // ── END EXOTEL WEBHOOKS ──────────────────────────────────────────────────
 
+// ── WHATSAPP INTEGRATION ──────────────────────────────────────────────────
+
+// Webhook: Handle incoming WhatsApp messages from Twilio
+app.post('/webhook/whatsapp', async (req, res) => {
+  console.log('📱 WhatsApp webhook received:', req.body);
+
+  const from = req.body.From; // Format: whatsapp:+919876543210
+  const body = req.body.Body; // Message text
+  const senderName = req.body.ProfileName || 'Student';
+
+  if (!whatsappManager) {
+    console.error('❌ WhatsApp manager not initialized');
+    return res.status(503).send('WhatsApp not configured');
+  }
+
+  try {
+    await whatsappManager.handleIncomingMessage(from, body, senderName);
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('❌ WhatsApp webhook error:', error);
+    res.status(500).send('Error processing message');
+  }
+});
+
+// API: Send WhatsApp message to a contact
+app.post('/api/whatsapp/send', async (req, res) => {
+  const { phone, message, mediaUrl } = req.body;
+
+  if (!whatsappManager) {
+    return res.status(503).json({ error: 'WhatsApp not configured' });
+  }
+
+  if (!phone || !message) {
+    return res.status(400).json({ error: 'Phone number and message required' });
+  }
+
+  try {
+    const result = await whatsappManager.sendMessage(phone, message, mediaUrl);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Failed to send WhatsApp:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Send welcome message to a contact
+app.post('/api/whatsapp/welcome', async (req, res) => {
+  const { phone, name } = req.body;
+
+  if (!whatsappManager) {
+    return res.status(503).json({ error: 'WhatsApp not configured' });
+  }
+
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone number required' });
+  }
+
+  try {
+    const result = await whatsappManager.sendWelcomeMessage(phone, name);
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Failed to send welcome message:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Send bulk WhatsApp messages
+app.post('/api/whatsapp/bulk-send', async (req, res) => {
+  const { contactIds, messageTemplate } = req.body;
+
+  if (!whatsappManager) {
+    return res.status(503).json({ error: 'WhatsApp not configured' });
+  }
+
+  if (!contactIds || !messageTemplate) {
+    return res.status(400).json({ error: 'Contact IDs and message template required' });
+  }
+
+  try {
+    const selectedContacts = contacts.filter(c => contactIds.includes(c.id));
+    const results = await whatsappManager.sendBulkMessages(selectedContacts, messageTemplate);
+
+    res.json({
+      success: true,
+      ...results,
+      totalContacts: selectedContacts.length
+    });
+  } catch (error) {
+    console.error('❌ Failed to send bulk WhatsApp:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Get active WhatsApp chats
+app.get('/api/whatsapp/active-chats', (req, res) => {
+  if (!whatsappManager) {
+    return res.status(503).json({ error: 'WhatsApp not configured' });
+  }
+
+  try {
+    const activeSessions = whatsappManager.getAllActiveSessions();
+    res.json({
+      count: whatsappManager.getActiveChatsCount(),
+      sessions: activeSessions
+    });
+  } catch (error) {
+    console.error('❌ Failed to get active chats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API: Clear WhatsApp chat session
+app.post('/api/whatsapp/clear-session', (req, res) => {
+  const { phone } = req.body;
+
+  if (!whatsappManager) {
+    return res.status(503).json({ error: 'WhatsApp not configured' });
+  }
+
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone number required' });
+  }
+
+  try {
+    const cleared = whatsappManager.clearChatSession(phone);
+    res.json({
+      success: cleared,
+      message: cleared ? 'Session cleared' : 'No active session found'
+    });
+  } catch (error) {
+    console.error('❌ Failed to clear session:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── END WHATSAPP INTEGRATION ──────────────────────────────────────────────
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\n🔄 Gracefully shutting down...');
@@ -723,6 +863,10 @@ process.on('SIGINT', async () => {
 
   if (voiceEngine) {
     await voiceEngine.close();
+  }
+
+  if (whatsappManager) {
+    console.log('📱 Closing WhatsApp manager...');
   }
 
   server.close(() => {
