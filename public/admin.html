@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — AI Calling Platform</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --accent: #7c3aed;
+    --accent2: #a78bfa;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --text: #e5e5e5;
+    --muted: #6b7280;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── Top Nav ── */
+  .topnav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topnav-brand { display: flex; align-items: center; gap: 10px; }
+  .topnav-brand .logo-dot {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #ec4899);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .topnav-brand h1 { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+  .topnav-brand span { font-size: 11px; color: var(--muted); margin-top: 1px; display: block; }
+  .topnav-actions { display: flex; gap: 10px; }
+  .btn {
+    padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; transition: all .15s; letter-spacing: -.1px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #6d28d9; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid #3f1f1f; }
+  .btn-danger:hover { background: #3f1f1f; }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+  .btn-icon { padding: 8px; border-radius: 7px; background: var(--surface2); border: 1px solid var(--border); cursor: pointer; color: var(--muted); font-size: 13px; transition: all .15s; }
+  .btn-icon:hover { color: var(--text); border-color: var(--accent); }
+
+  /* ── Layout ── */
+  .main { max-width: 1280px; margin: 0 auto; padding: 28px 24px; }
+
+  /* ── Stats Row ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; position: relative; overflow: hidden;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), #ec4899);
+    border-radius: 12px 12px 0 0;
+  }
+  .stat-card.green::before { background: linear-gradient(90deg, var(--green), #84cc16); }
+  .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), #06b6d4); }
+  .stat-card.yellow::before { background: linear-gradient(90deg, var(--yellow), #f97316); }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+  .stat-value { font-size: 30px; font-weight: 800; letter-spacing: -1px; color: var(--text); line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .stat-icon { position: absolute; top: 16px; right: 16px; font-size: 22px; opacity: .3; }
+
+  /* ── Section Headers ── */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .section-title { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -.2px; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-purple { background: rgba(124,58,237,.2); color: var(--accent2); }
+  .badge-green { background: rgba(34,197,94,.15); color: var(--green); }
+  .badge-yellow { background: rgba(234,179,8,.15); color: var(--yellow); }
+  .badge-red { background: rgba(239,68,68,.15); color: var(--red); }
+  .badge-gray { background: rgba(107,114,128,.15); color: var(--muted); }
+
+  /* ── Client Grid ── */
+  .clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; margin-bottom: 32px; }
+
+  .client-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; transition: border-color .2s; position: relative;
+  }
+  .client-card:hover { border-color: var(--accent); }
+  .client-card.active-client { border-color: #7c3aed88; box-shadow: 0 0 0 1px #7c3aed44; }
+
+  .client-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+  .client-avatar {
+    width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent), #ec4899);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700;
+    color: #fff; margin-right: 12px;
+  }
+  .client-name-wrap { flex: 1; }
+  .client-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .client-meta { font-size: 12px; color: var(--muted); }
+  .active-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; margin-top: 4px; box-shadow: 0 0 8px var(--green); }
+
+  .client-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .c-stat { text-align: center; background: var(--surface2); border-radius: 8px; padding: 10px 6px; }
+  .c-stat-val { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -.5px; }
+  .c-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+
+  .client-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .info-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+
+  /* ── Two Column Layout ── */
+  .two-col { display: grid; grid-template-columns: 1fr 380px; gap: 18px; }
+
+  /* ── Table ── */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--surface2); }
+  th { padding: 12px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); text-align: left; font-weight: 600; }
+  td { padding: 13px 16px; font-size: 13px; color: var(--text); border-top: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: var(--surface2); }
+  .mono { font-family: monospace; font-size: 12px; color: var(--muted); }
+  .truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Sidebar Panel ── */
+  .sidebar-panel { display: flex; flex-direction: column; gap: 14px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .panel-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 14px; }
+
+  .activity-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-icon { font-size: 16px; width: 28px; height: 28px; border-radius: 7px; background: var(--surface2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .activity-text { font-size: 12px; color: var(--text); line-height: 1.4; }
+  .activity-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .system-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .system-item:last-child { border-bottom: none; }
+  .system-key { color: var(--muted); font-size: 12px; }
+  .system-val { font-weight: 600; }
+  .dot-on { color: var(--green); }
+  .dot-off { color: var(--red); }
+
+  /* ── Modal ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 620px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+  .modal-title { font-size: 16px; font-weight: 700; }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+  .close-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 4px; }
+  .close-btn:hover { color: var(--text); }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 10px 12px; font-size: 13px;
+    font-family: inherit; outline: none; transition: border-color .15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+
+  /* ── Empty State ── */
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: .5; }
+  .empty-state p { font-size: 14px; margin-bottom: 16px; }
+
+  /* ── Toast ── */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,.4); display: flex; align-items: center; gap: 8px; animation: slideIn .2s; }
+  .toast.success { border-color: var(--green); }
+  .toast.error { border-color: var(--red); }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ── KB Viewer ── */
+  .kb-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+  .kb-item-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .kb-item-content { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .kb-cat { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; background: rgba(124,58,237,.2); color: var(--accent2); margin-bottom: 6px; }
+
+  /* ── Transcript Viewer ── */
+  .transcript-turn { padding: 10px 14px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; line-height: 1.5; }
+  .transcript-turn.agent { background: rgba(124,58,237,.12); border-left: 3px solid var(--accent); }
+  .transcript-turn.user { background: var(--surface2); border-left: 3px solid var(--border); }
+  .turn-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 4px; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .clients-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top Nav -->
+<nav class="topnav">
+  <div class="topnav-brand">
+    <div class="logo-dot">⚡</div>
+    <div>
+      <h1>AI Calling Platform</h1>
+      <span>Multi-Client Admin Console</span>
+    </div>
+  </div>
+  <div class="topnav-actions">
+    <button class="btn btn-ghost btn-sm" onclick="location.href='/'">← Call Console</button>
+    <button class="btn btn-ghost btn-sm" onclick="refreshAll()">⟳ Refresh</button>
+    <button class="btn btn-primary btn-sm" onclick="location.href='/onboard'">+ Onboard Client</button>
+  </div>
+</nav>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Stats Row -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card">
+      <div class="stat-icon">🏢</div>
+      <div class="stat-label">Total Clients</div>
+      <div class="stat-value" id="s-clients"><span class="spinner"></span></div>
+      <div class="stat-sub" id="s-active-client">Loading…</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon">📞</div>
+      <div class="stat-label">Calls Today</div>
+      <div class="stat-value" id="s-today"><span class="spinner"></span></div>
+      <div class="stat-sub">across all clients</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-icon">📊</div>
+      <div class="stat-label">Total Calls</div>
+      <div class="stat-value" id="s-total"><span class="spinner"></span></div>
+      <div class="stat-sub">all time</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="stat-icon">🤖</div>
+      <div class="stat-label">AI Engine</div>
+      <div class="stat-value" id="s-engine" style="font-size:18px; margin-top:4px;">Gemini 2.5</div>
+      <div class="stat-sub" id="s-engine-status">flash · active</div>
+    </div>
+  </div>
+
+  <!-- Clients Grid + Sidebar -->
+  <div class="two-col">
+
+    <!-- Left: Client Cards -->
+    <div>
+      <div class="section-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="section-title">Registered Clients</span>
+          <span class="badge badge-purple" id="client-count-badge">—</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="showCreateBizModal()">+ Quick Add</button>
+      </div>
+
+      <div class="clients-grid" id="clientsGrid">
+        <div class="empty-state">
+          <div class="icon">⏳</div>
+          <p>Loading clients…</p>
+        </div>
+      </div>
+
+      <!-- Transcripts Table -->
+      <div class="section-header">
+        <span class="section-title">Recent Call Transcripts</span>
+        <select id="transcriptFilter" onchange="loadTranscripts()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 10px;font-size:12px;">
+          <option value="">All Clients</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Contact</th>
+              <th>Intent</th>
+              <th>Language</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="transcriptTable">
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Right: Sidebar -->
+    <div class="sidebar-panel">
+
+      <!-- System Status -->
+      <div class="panel">
+        <div class="panel-title">System Status</div>
+        <div class="system-item">
+          <span class="system-key">Gemini AI</span>
+          <span class="system-val dot-on">● Online</span>
+        </div>
+        <div class="system-item">
+          <span class="system-key">ElevenLabs TTS</span>
+          <span class="system-val dot-on">● Online</span>
+        </div>
+        <div class="system-item">
+          <span class="system-key">Exotel Calling</span>
+          <span class="system-val dot-on">● Active</span>
+        </div>
+        <div class="system-item">
+          <span class="system-key">WhatsApp</span>
+          <span class="system-val dot-on">● Sandbox</span>
+        </div>
+        <div class="system-item">
+          <span class="system-key">Languages</span>
+          <span class="system-val">EN · HI · MR</span>
+        </div>
+        <div class="system-item">
+          <span class="system-key">DB Backend</span>
+          <span class="system-val">SQLite</span>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="panel">
+        <div class="panel-title">Quick Actions</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-primary" onclick="location.href='/onboard'">🚀 Onboard New Client</button>
+          <button class="btn btn-ghost" onclick="location.href='/'">📞 Open Call Console</button>
+          <button class="btn btn-ghost" onclick="location.href='/inbound-dashboard.html'">📥 Inbound Dashboard</button>
+          <button class="btn btn-ghost" onclick="showKBModal()">📚 Browse Knowledge Base</button>
+        </div>
+      </div>
+
+      <!-- Activity Feed -->
+      <div class="panel">
+        <div class="panel-title">Recent Activity</div>
+        <div id="activityFeed">
+          <div style="color:var(--muted);font-size:12px;text-align:center;padding:12px;">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Modal: Create Business Quick Add -->
+<div class="modal-overlay" id="createBizModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Quick Add Client</span>
+      <button class="close-btn" onclick="closeModal('createBizModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Business Name *</label>
+        <input id="qb-name" placeholder="e.g. Acme Corp">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label>Agent Name</label>
+          <input id="qb-agent" placeholder="e.g. Priya">
+        </div>
+        <div class="form-group">
+          <label>Industry</label>
+          <select id="qb-industry">
+            <option value="education">Education</option>
+            <option value="real_estate">Real Estate</option>
+            <option value="healthcare">Healthcare</option>
+            <option value="finance">Finance</option>
+            <option value="retail">Retail</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Call Type</label>
+        <select id="qb-calltype">
+          <option value="outbound_lead">Outbound Lead</option>
+          <option value="appointment_booking">Appointment Booking</option>
+          <option value="survey">Survey</option>
+          <option value="inbound_support">Inbound Support</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Languages</label>
+        <select id="qb-lang">
+          <option value="en">English only</option>
+          <option value="hi">Hindi only</option>
+          <option value="en,hi">English + Hindi</option>
+          <option value="en,hi,mr">English + Hindi + Marathi</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Description / Tagline</label>
+        <textarea id="qb-desc" placeholder="What does this business do?"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('createBizModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="quickCreateBiz()">Create & Activate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Knowledge Base Viewer -->
+<div class="modal-overlay" id="kbModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Knowledge Base — <span id="kb-biz-name">–</span></span>
+      <button class="close-btn" onclick="closeModal('kbModal')">✕</button>
+    </div>
+    <div class="modal-body" id="kbModalBody">
+      <div class="empty-state"><div class="icon">📚</div><p>Select a client to view KB</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Transcript Viewer -->
+<div class="modal-overlay" id="transcriptModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Transcript — <span id="tr-contact">–</span></span>
+      <button class="close-btn" onclick="closeModal('transcriptModal')">✕</button>
+    </div>
+    <div class="modal-body" id="transcriptModalBody">
+      <div class="empty-state"><p>No transcript data</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add KB Entry -->
+<div class="modal-overlay" id="addKBModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Knowledge Entry</span>
+      <button class="close-btn" onclick="closeModal('addKBModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="kb-target-bizid">
+      <div class="form-group">
+        <label>Title</label>
+        <input id="kb-title" placeholder="e.g. Pricing Plans">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label>Category</label>
+          <select id="kb-category">
+            <option value="faq">FAQ</option>
+            <option value="service">Service</option>
+            <option value="pricing">Pricing</option>
+            <option value="policy">Policy</option>
+            <option value="contact">Contact</option>
+            <option value="event">Event</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Language</label>
+          <select id="kb-lang-sel">
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+            <option value="mr">Marathi</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Content</label>
+        <textarea id="kb-content" style="min-height:120px;" placeholder="Detailed information for the AI agent…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addKBModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveKBEntry()">Add to KB</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let allBusinesses = [];
+let adminStats = {};
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  refreshAll();
+  setInterval(refreshStats, 30000);
+});
+
+async function refreshAll() {
+  await Promise.all([loadStats(), loadTranscripts()]);
+}
+
+// ── Load Stats + Businesses ──
+async function loadStats() {
+  try {
+    const res = await fetch('/api/admin/stats');
+    adminStats = await res.json();
+    renderStats(adminStats);
+    renderClients(adminStats.businesses || []);
+    populateTranscriptFilter(adminStats.businesses || []);
+    renderActivity(adminStats.businesses || []);
+  } catch (e) {
+    toast('Failed to load stats', 'error');
+  }
+}
+
+function renderStats(data) {
+  setText('s-clients', data.totalClients ?? 0);
+  setText('s-active-client', `Active: ${data.activeClient || 'None'}`);
+  setText('s-today', data.callsToday ?? 0);
+  setText('s-total', data.totalCalls ?? 0);
+  document.getElementById('client-count-badge').textContent = `${data.totalClients ?? 0} registered`;
+}
+
+function renderClients(businesses) {
+  allBusinesses = businesses;
+  const grid = document.getElementById('clientsGrid');
+
+  if (!businesses.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="icon">🏢</div>
+      <p>No clients yet. Onboard your first client!</p>
+      <button class="btn btn-primary" onclick="location.href='/onboard'">+ Onboard Client</button>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = businesses.map(b => `
+    <div class="client-card ${b.active ? 'active-client' : ''}" id="card-${b.id}">
+      <div class="client-header">
+        <div class="client-avatar">${(b.name || '?')[0].toUpperCase()}</div>
+        <div class="client-name-wrap">
+          <div class="client-name">${esc(b.name)}</div>
+          <div class="client-meta">Agent: ${esc(b.agent_name || 'Priya')} · ${esc(b.industry || 'General')}</div>
+        </div>
+        ${b.active ? '<div class="active-dot" title="Currently Active"></div>' : ''}
+      </div>
+
+      <div class="info-row">
+        <span class="badge ${b.active ? 'badge-green' : 'badge-gray'}">${b.active ? 'Active' : 'Inactive'}</span>
+        <span class="badge badge-purple">${esc(b.industry || 'general')}</span>
+      </div>
+
+      <div class="client-stats">
+        <div class="c-stat">
+          <div class="c-stat-val">${b.calls ?? 0}</div>
+          <div class="c-stat-label">Total Calls</div>
+        </div>
+        <div class="c-stat">
+          <div class="c-stat-val">—</div>
+          <div class="c-stat-label">This Week</div>
+        </div>
+        <div class="c-stat">
+          <div class="c-stat-val">—</div>
+          <div class="c-stat-label">Success %</div>
+        </div>
+      </div>
+
+      <div class="client-actions">
+        ${!b.active ? `<button class="btn btn-primary btn-sm" onclick="activateClient('${b.id}')">⚡ Activate</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="location.href='/'">📞 Console</button>
+        <button class="btn btn-ghost btn-sm" onclick="viewKB('${b.id}', '${esc(b.name)}')">📚 KB</button>
+        <button class="btn btn-ghost btn-sm" onclick="openAddKB('${b.id}')">+ Add KB</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteClient('${b.id}', '${esc(b.name)}')">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderActivity(businesses) {
+  const feed = document.getElementById('activityFeed');
+  const items = businesses.map(b => ({
+    icon: '🏢',
+    text: `<strong>${esc(b.name)}</strong> — ${b.calls} call${b.calls !== 1 ? 's' : ''} logged`,
+    time: b.active ? 'Currently active' : 'Inactive',
+  }));
+
+  if (!items.length) {
+    feed.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px;">No activity yet</div>';
+    return;
+  }
+
+  feed.innerHTML = items.map(item => `
+    <div class="activity-item">
+      <div class="activity-icon">${item.icon}</div>
+      <div>
+        <div class="activity-text">${item.text}</div>
+        <div class="activity-time">${item.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function populateTranscriptFilter(businesses) {
+  const sel = document.getElementById('transcriptFilter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All Clients</option>' +
+    businesses.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('');
+  if (current) sel.value = current;
+}
+
+// ── Transcripts ──
+async function loadTranscripts() {
+  const bizId = document.getElementById('transcriptFilter')?.value || '';
+  try {
+    const url = bizId ? `/api/businesses/${bizId}/transcripts` : '/api/transcripts';
+    const res = await fetch(url);
+    if (!res.ok) { renderTranscriptsEmpty(); return; }
+    const data = await res.json();
+    renderTranscriptsTable(data);
+  } catch {
+    renderTranscriptsEmpty();
+  }
+}
+
+function renderTranscriptsTable(rows) {
+  const tbody = document.getElementById('transcriptTable');
+  if (!rows || !rows.length) { renderTranscriptsEmpty(); return; }
+
+  tbody.innerHTML = rows.slice(0, 50).map(r => {
+    const biz = allBusinesses.find(b => b.id === r.business_id);
+    const intentColor = {
+      interested: 'badge-green', confirmed: 'badge-green', resolved: 'badge-green',
+      not_interested: 'badge-red', cancelled: 'badge-red', refused: 'badge-red',
+      ongoing: 'badge-yellow', callback: 'badge-yellow', rescheduled: 'badge-yellow',
+    }[r.final_intent] || 'badge-gray';
+    return `
+    <tr>
+      <td>${biz ? esc(biz.name) : '<span class="mono">' + (r.business_id || '–').slice(0,8) + '…</span>'}</td>
+      <td class="mono">${esc(r.contact_phone || '–')}</td>
+      <td><span class="badge ${intentColor}">${esc(r.final_intent || '–')}</span></td>
+      <td><span class="badge badge-gray">${(r.language || 'en').toUpperCase()}</span></td>
+      <td style="color:var(--muted);font-size:12px;">${fmtDate(r.created_at)}</td>
+      <td><button class="btn-icon" onclick="viewTranscript(${JSON.stringify(r).replace(/"/g,'&quot;')})">👁</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderTranscriptsEmpty() {
+  document.getElementById('transcriptTable').innerHTML =
+    '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">No transcripts yet — calls will appear here</td></tr>';
+}
+
+// ── Actions ──
+async function activateClient(id) {
+  try {
+    const res = await fetch(`/api/businesses/${id}/activate`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed');
+    toast('Client activated', 'success');
+    await loadStats();
+  } catch {
+    toast('Failed to activate client', 'error');
+  }
+}
+
+async function deleteClient(id, name) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`/api/businesses/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed');
+    toast(`"${name}" deleted`, 'success');
+    await loadStats();
+  } catch {
+    toast('Failed to delete client', 'error');
+  }
+}
+
+async function viewKB(bizId, bizName) {
+  document.getElementById('kb-biz-name').textContent = bizName;
+  document.getElementById('kbModalBody').innerHTML = '<div style="text-align:center;padding:24px;"><span class="spinner"></span></div>';
+  openModal('kbModal');
+  try {
+    const res = await fetch(`/api/businesses/${bizId}/knowledge`);
+    const entries = await res.json();
+    if (!entries.length) {
+      document.getElementById('kbModalBody').innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📚</div>
+          <p>No knowledge entries yet.</p>
+          <button class="btn btn-primary btn-sm" onclick="closeModal('kbModal');openAddKB('${bizId}')">+ Add First Entry</button>
+        </div>`;
+      return;
+    }
+    document.getElementById('kbModalBody').innerHTML = entries.map(e => `
+      <div class="kb-item">
+        <span class="kb-cat">${esc(e.category || e.type || 'info')}</span>
+        <div class="kb-item-title">${esc(e.title)}</div>
+        <div class="kb-item-content">${esc(e.content)}</div>
+      </div>
+    `).join('');
+  } catch {
+    document.getElementById('kbModalBody').innerHTML = '<div class="empty-state"><p>Failed to load KB</p></div>';
+  }
+}
+
+function showKBModal() {
+  if (!allBusinesses.length) { toast('No clients registered', 'error'); return; }
+  const active = allBusinesses.find(b => b.active) || allBusinesses[0];
+  viewKB(active.id, active.name);
+}
+
+function openAddKB(bizId) {
+  document.getElementById('kb-target-bizid').value = bizId;
+  document.getElementById('kb-title').value = '';
+  document.getElementById('kb-content').value = '';
+  openModal('addKBModal');
+}
+
+async function saveKBEntry() {
+  const bizId = document.getElementById('kb-target-bizid').value;
+  const title = document.getElementById('kb-title').value.trim();
+  const content = document.getElementById('kb-content').value.trim();
+  const category = document.getElementById('kb-category').value;
+  const language = document.getElementById('kb-lang-sel').value;
+  if (!title || !content) { toast('Title and content required', 'error'); return; }
+  try {
+    const res = await fetch(`/api/businesses/${bizId}/knowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content, category, language }),
+    });
+    if (!res.ok) throw new Error('Failed');
+    toast('Knowledge entry added', 'success');
+    closeModal('addKBModal');
+  } catch {
+    toast('Failed to add entry', 'error');
+  }
+}
+
+function viewTranscript(row) {
+  document.getElementById('tr-contact').textContent = row.contact_phone || 'Unknown';
+  let body = '<div style="color:var(--muted);font-size:12px;margin-bottom:14px;">';
+  body += `Intent: <strong>${row.final_intent || '–'}</strong> · Language: <strong>${(row.language||'en').toUpperCase()}</strong>`;
+  body += ` · ${fmtDate(row.created_at)}</div>`;
+
+  if (row.transcript_json) {
+    try {
+      const turns = JSON.parse(row.transcript_json);
+      body += turns.map(t => `
+        <div class="transcript-turn ${t.role === 'agent' ? 'agent' : 'user'}">
+          <div class="turn-label">${t.role === 'agent' ? '🤖 Agent' : '👤 User'}</div>
+          ${esc(t.text || t.content || '')}
+        </div>
+      `).join('');
+    } catch {
+      body += `<pre style="font-size:12px;color:var(--muted);white-space:pre-wrap;">${esc(row.transcript_json)}</pre>`;
+    }
+  } else {
+    body += '<div class="empty-state"><p>No transcript text stored</p></div>';
+  }
+
+  document.getElementById('transcriptModalBody').innerHTML = body;
+  openModal('transcriptModal');
+}
+
+// ── Quick Create Business ──
+function showCreateBizModal() {
+  document.getElementById('qb-name').value = '';
+  document.getElementById('qb-agent').value = '';
+  document.getElementById('qb-desc').value = '';
+  openModal('createBizModal');
+}
+
+async function quickCreateBiz() {
+  const name = document.getElementById('qb-name').value.trim();
+  if (!name) { toast('Business name required', 'error'); return; }
+  const payload = {
+    business: {
+      name,
+      agent_name: document.getElementById('qb-agent').value.trim() || 'Priya',
+      industry: document.getElementById('qb-industry').value,
+      call_type: document.getElementById('qb-calltype').value,
+      languages: document.getElementById('qb-lang').value,
+      description: document.getElementById('qb-desc').value.trim(),
+    },
+    knowledge: [],
+  };
+  try {
+    const res = await fetch('/api/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    // Activate it
+    await fetch(`/api/businesses/${data.business.id}/activate`, { method: 'POST' });
+
+    toast(`"${name}" created & activated`, 'success');
+    closeModal('createBizModal');
+    await loadStats();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+async function refreshStats() {
+  await loadStats();
+}
+
+// ── Utilities ──
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function toast(msg, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `${type === 'success' ? '✅' : '❌'} ${esc(msg)}`;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(str) {
+  if (!str) return '–';
+  try {
+    return new Date(str).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  } catch { return str; }
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import pLimit from 'p-limit';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ override: true });
 
 class EnhancedGeminiEngine {
   constructor() {
@@ -315,8 +315,11 @@ let model = null;
 
 export function initGemini(apiKey) {
   genAI = new GoogleGenerativeAI(apiKey);
-  model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  console.log('🤖 Gemini engine ready (legacy mode)');
+  model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    generationConfig: { temperature: 0.8, maxOutputTokens: 400 },
+  });
+  console.log('🤖 Gemini engine ready (gemini-2.5-flash)');
 }
 
 function buildSystemPrompt(contact, seminarDetails) {
@@ -626,12 +629,14 @@ INTENT: {"intent": "interested|not_interested|callback|questions|rsvp_yes|rsvp_n
 }
 
 function parseMHTCETResponse(raw) {
-  const intentMatch = raw.match(/INTENT:\s*(\{.*?\})/s);
+  // Strip Gemini 2.5 thinking tokens if they leak through
+  let cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const intentMatch = cleaned.match(/INTENT:\s*(\{.*?\})/s);
   let intentData = { intent: 'ongoing', language_used: 'en', continue: true };
   if (intentMatch) {
     try { intentData = { ...intentData, ...JSON.parse(intentMatch[1]) }; } catch (_) {}
   }
-  const text = raw.replace(/\nINTENT:.*$/s, '').trim();
+  const text = cleaned.replace(/\nINTENT:.*$/s, '').trim();
   return { text, intent: intentData.intent, language: intentData.language_used };
 }
 
@@ -640,7 +645,7 @@ export async function startMHTCETConversation(language = 'en') {
   const systemPrompt = buildMHTCETSystemPrompt(language);
   const chat = model.startChat({
     history: [],
-    generationConfig: { temperature: 0.8, maxOutputTokens: 350 },
+    generationConfig: { temperature: 0.8, maxOutputTokens: 400 },
   });
 
   // Force greeting in selected language from the very first message

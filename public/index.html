@@ -50,6 +50,24 @@
   .logo { font-family: var(--mono); font-size: 14px; color: var(--accent); letter-spacing: 2px; }
   .logo span { color: var(--muted); }
   .logo-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); letter-spacing: 1px; }
+  .biz-mgmt-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 5px 12px; font-size: 11px; cursor: pointer; font-family: var(--mono);
+    letter-spacing: 1px; transition: color .2s, border-color .2s;
+  }
+  .biz-mgmt-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .biz-card {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: border-color .2s;
+  }
+  .biz-card:hover { border-color: var(--accent2); }
+  .biz-card.active-biz { border-color: var(--accent); }
+  .biz-card-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .biz-card-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .biz-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .biz-btn { font-size: 11px; padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
+  .biz-btn:hover { color: var(--text); }
+  .biz-btn.activate { color: var(--accent); border-color: var(--accent); }
   .header-lang {
     margin-left: auto;
     display: flex; align-items: center; gap: 10px;
@@ -344,15 +362,40 @@
 <body>
 
 <header>
-  <div class="logo">PRIYA<span>/</span>CAMPUS DEKHO</div>
-  <div class="logo-sub">AI VOICE AGENT • CAMPUSDEKHO.AI</div>
+  <div class="logo" id="header-logo">PRIYA<span>/</span>CAMPUS DEKHO</div>
+  <div class="logo-sub" id="header-sub">AI VOICE AGENT • CAMPUSDEKHO.AI</div>
   <div class="header-lang">
+    <button class="biz-mgmt-btn" onclick="toggleBizPanel()" title="Manage Businesses">⚙ Businesses</button>
     <div class="lang-badge active" id="lang-en" onclick="switchLanguage('en')" title="Switch to English">EN</div>
     <div class="lang-badge" id="lang-hi" onclick="switchLanguage('hi')" title="हिंदी में बदलें">हि</div>
     <div class="lang-badge" id="lang-mr" onclick="switchLanguage('mr')" title="मराठीत बदला">म</div>
     <div class="call-status-pill" id="call-pill">READY</div>
   </div>
 </header>
+
+<!-- BUSINESS PANEL OVERLAY -->
+<div id="biz-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:100;" onclick="if(event.target===this)toggleBizPanel()">
+  <div style="position:absolute; right:0; top:0; bottom:0; width:420px; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column;">
+    <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px;">
+      <span style="font-family:var(--mono); color:var(--accent); font-size:13px;">BUSINESSES</span>
+      <button onclick="showBizForm(null)" style="margin-left:auto; background:var(--accent); color:#000; border:none; border-radius:6px; padding:6px 14px; font-size:12px; cursor:pointer; font-weight:700;">+ ADD</button>
+      <button onclick="toggleBizPanel()" style="background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; line-height:1;">✕</button>
+    </div>
+    <div id="biz-list" style="flex:1; overflow-y:auto; padding:12px;"></div>
+    <div id="biz-form" style="display:none; padding:16px; border-top:1px solid var(--border); background:var(--surface2);">
+      <div style="font-family:var(--mono); font-size:12px; color:var(--accent); margin-bottom:12px;" id="biz-form-title">ADD BUSINESS</div>
+      <input id="bf-name" placeholder="Business name *" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:8px;">
+      <input id="bf-tagline" placeholder="Tagline" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:8px;">
+      <input id="bf-agent" placeholder="Agent name (e.g. Priya)" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:8px;">
+      <input id="bf-website" placeholder="Website URL" style="width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:12px;">
+      <div style="display:flex; gap:8px;">
+        <button onclick="saveBiz()" style="flex:1; background:var(--accent); color:#000; border:none; border-radius:6px; padding:9px; font-size:13px; font-weight:700; cursor:pointer;">Save</button>
+        <button onclick="document.getElementById('biz-form').style.display='none'" style="flex:1; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:9px; font-size:13px; cursor:pointer;">Cancel</button>
+      </div>
+      <input type="hidden" id="bf-id">
+    </div>
+  </div>
+</div>
 
 <!-- CALL AREA -->
 <div class="call-area">
@@ -873,6 +916,103 @@
   document.getElementById('msg-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
+
+  // ── BUSINESS MANAGEMENT ────────────────────────────────────────────────────
+  let bizPanelOpen = false;
+  let editBizId = null;
+
+  async function loadActiveBusiness() {
+    try {
+      const res = await fetch('/api/businesses/active');
+      if (!res.ok) return;
+      const biz = await res.json();
+      const agentName = biz.agent_name || 'Priya';
+      const bizName = biz.name || 'Campus Dekho';
+      const website = biz.website ? biz.website.replace(/^https?:\/\//, '') : 'campusdekho.ai';
+      document.getElementById('header-logo').innerHTML = `${agentName.toUpperCase()}<span>/</span>${bizName.toUpperCase()}`;
+      document.getElementById('header-sub').textContent = `AI VOICE AGENT • ${website.toUpperCase()}`;
+      document.title = `${agentName} — ${bizName} AI Voice Agent`;
+    } catch (e) { /* silently ignore — headers stay as-is */ }
+  }
+
+  function toggleBizPanel() {
+    bizPanelOpen = !bizPanelOpen;
+    document.getElementById('biz-overlay').style.display = bizPanelOpen ? 'block' : 'none';
+    if (bizPanelOpen) loadBizList();
+  }
+
+  async function loadBizList() {
+    const list = document.getElementById('biz-list');
+    list.innerHTML = '<div style="color:var(--muted); font-size:12px; padding:8px;">Loading...</div>';
+    const res = await fetch('/api/businesses');
+    const businesses = await res.json();
+    if (!businesses.length) {
+      list.innerHTML = '<div style="color:var(--muted); font-size:12px; padding:8px;">No businesses yet. Click + ADD to create one.</div>';
+      return;
+    }
+    list.innerHTML = businesses.map(biz => `
+      <div class="biz-card ${biz.active ? 'active-biz' : ''}">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div>
+            <div class="biz-card-name">${biz.name}${biz.active ? ' <span style="color:var(--accent); font-size:10px;">✓ ACTIVE</span>' : ''}</div>
+            <div class="biz-card-sub">${biz.tagline || biz.industry || ''}</div>
+          </div>
+        </div>
+        <div class="biz-actions">
+          ${!biz.active ? `<button class="biz-btn activate" onclick="activateBiz(${biz.id})">Set Active</button>` : ''}
+          <button class="biz-btn" onclick="showBizForm(${biz.id}, ${JSON.stringify(biz).replace(/"/g, '&quot;')})">Edit</button>
+          ${!biz.active ? `<button class="biz-btn" onclick="deleteBiz(${biz.id}, '${biz.name.replace(/'/g, '')}')">Delete</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function activateBiz(id) {
+    await fetch(`/api/businesses/${id}/activate`, { method: 'POST' });
+    await loadBizList();
+    loadActiveBusiness();
+  }
+
+  async function deleteBiz(id, name) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    await fetch(`/api/businesses/${id}`, { method: 'DELETE' });
+    loadBizList();
+  }
+
+  function showBizForm(id, bizData) {
+    editBizId = id;
+    document.getElementById('biz-form-title').textContent = id ? 'EDIT BUSINESS' : 'ADD BUSINESS';
+    document.getElementById('bf-id').value = id || '';
+    document.getElementById('bf-name').value = bizData?.name || '';
+    document.getElementById('bf-tagline').value = bizData?.tagline || '';
+    document.getElementById('bf-agent').value = bizData?.agent_name || 'Priya';
+    document.getElementById('bf-website').value = bizData?.website || '';
+    document.getElementById('biz-form').style.display = 'block';
+  }
+
+  async function saveBiz() {
+    const name = document.getElementById('bf-name').value.trim();
+    if (!name) { alert('Business name is required.'); return; }
+    const data = {
+      name,
+      tagline: document.getElementById('bf-tagline').value.trim(),
+      agent_name: document.getElementById('bf-agent').value.trim() || 'Priya',
+      website: document.getElementById('bf-website').value.trim(),
+    };
+    const id = editBizId;
+    if (id) {
+      await fetch(`/api/businesses/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    } else {
+      await fetch('/api/businesses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    }
+    document.getElementById('biz-form').style.display = 'none';
+    editBizId = null;
+    loadBizList();
+    loadActiveBusiness();
+  }
+
+  // Load active business on page load
+  setTimeout(loadActiveBusiness, 300);
 </script>
 </body>
 </html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inbound Dashboard — Campus Dekho AI</title>
+<style>
+  :root {
+    --bg: #0d0d0d; --surface: #161616; --surface2: #1e1e1e; --border: #2a2a2a;
+    --accent: #7c3aed; --accent2: #a78bfa; --green: #22c55e; --yellow: #eab308;
+    --red: #ef4444; --blue: #3b82f6; --cyan: #06b6d4; --text: #e5e5e5; --muted: #6b7280;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── Nav ── */
+  .topnav { display: flex; align-items: center; justify-content: space-between; padding: 14px 28px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+  .topnav-brand { display: flex; align-items: center; gap: 10px; }
+  .logo-dot { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #06b6d4, #7c3aed); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .topnav-brand h1 { font-size: 17px; font-weight: 700; }
+  .topnav-brand span { font-size: 11px; color: var(--muted); display: block; }
+  .topnav-actions { display: flex; gap: 10px; align-items: center; }
+  .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #6d28d9; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-cyan { background: var(--cyan); color: #000; font-weight: 700; }
+  .btn-cyan:hover { background: #0891b2; }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+
+  /* ── Layout ── */
+  .main { max-width: 1400px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 1fr 420px; gap: 20px; }
+
+  /* ── Stats ── */
+  .stats-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 4px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; position: relative; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; background: linear-gradient(90deg, var(--cyan), var(--accent)); }
+  .stat-card.g::before { background: linear-gradient(90deg, var(--green), #84cc16); }
+  .stat-card.y::before { background: linear-gradient(90deg, var(--yellow), #f97316); }
+  .stat-card.r::before { background: linear-gradient(90deg, var(--red), #ec4899); }
+  .stat-card.b::before { background: linear-gradient(90deg, var(--blue), var(--cyan)); }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 800; letter-spacing: -1px; }
+  .stat-icon { position: absolute; top: 14px; right: 14px; font-size: 20px; opacity: .25; }
+
+  /* ── Call Simulator ── */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .panel-title { font-size: 14px; font-weight: 700; }
+  .panel-body { padding: 18px 20px; }
+
+  .call-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 13px; font-weight: 600; }
+  .call-status.idle { background: rgba(107,114,128,.1); color: var(--muted); border: 1px solid var(--border); }
+  .call-status.active { background: rgba(34,197,94,.1); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+  .call-status.ended { background: rgba(239,68,68,.1); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .form-group input, .form-group select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 9px 12px; font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--cyan); }
+
+  /* ── Conversation ── */
+  .conversation { height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; padding-right: 4px; }
+  .conversation::-webkit-scrollbar { width: 4px; }
+  .conversation::-webkit-scrollbar-track { background: transparent; }
+  .conversation::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg { padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5; max-width: 92%; }
+  .msg-agent { background: rgba(6,182,212,.1); border-left: 3px solid var(--cyan); align-self: flex-start; }
+  .msg-user { background: var(--surface2); border-left: 3px solid var(--border); align-self: flex-end; }
+  .msg-system { background: rgba(234,179,8,.08); border: 1px dashed rgba(234,179,8,.3); color: var(--yellow); font-size: 11px; align-self: center; text-align: center; border-radius: 8px; padding: 6px 12px; }
+  .msg-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 4px; }
+
+  .input-row { display: flex; gap: 8px; }
+  .input-row input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 14px; font-size: 13px; font-family: inherit; outline: none; }
+  .input-row input:focus { border-color: var(--cyan); }
+
+  /* ── Tools Panel ── */
+  .tools-log { height: 200px; overflow-y: auto; }
+  .tool-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .tool-item:last-child { border-bottom: none; }
+  .tool-name { background: rgba(124,58,237,.2); color: var(--accent2); padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .tool-result { color: var(--muted); line-height: 1.4; }
+
+  /* ── Right Sidebar ── */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  /* ── Call History Table ── */
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--surface2); }
+  th { padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); text-align: left; }
+  td { padding: 11px 14px; font-size: 12px; color: var(--text); border-top: 1px solid var(--border); }
+  tr:hover td { background: var(--surface2); }
+
+  .badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+  .badge-green { background: rgba(34,197,94,.15); color: var(--green); }
+  .badge-red { background: rgba(239,68,68,.15); color: var(--red); }
+  .badge-yellow { background: rgba(234,179,8,.15); color: var(--yellow); }
+  .badge-cyan { background: rgba(6,182,212,.15); color: var(--cyan); }
+  .badge-purple { background: rgba(124,58,237,.2); color: var(--accent2); }
+  .badge-gray { background: rgba(107,114,128,.15); color: var(--muted); }
+
+  /* ── KB Search ── */
+  .kb-result { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .kb-question { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .kb-answer { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .kb-cat { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; background: rgba(6,182,212,.15); color: var(--cyan); margin-bottom: 5px; }
+
+  /* ── Packages / Events ── */
+  .pkg-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+  .pkg-name { font-size: 13px; font-weight: 700; }
+  .pkg-price { font-size: 18px; font-weight: 800; color: var(--cyan); }
+  .pkg-desc { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .evt-platform { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; background: rgba(239,68,68,.15); color: var(--red); margin-bottom: 6px; }
+
+  /* ── Spinner ── */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toast ── */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; animation: slideIn .2s; }
+  .toast.success { border-color: var(--green); }
+  .toast.error { border-color: var(--red); }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab { padding: 8px 14px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; }
+  .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+  @media (max-width: 1000px) {
+    .main { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-brand">
+    <div class="logo-dot">📥</div>
+    <div>
+      <h1>Inbound AI Dashboard</h1>
+      <span>Campus Dekho · Priya Agent · Live</span>
+    </div>
+  </div>
+  <div class="topnav-actions">
+    <span id="live-badge" style="font-size:11px;color:var(--muted);padding:4px 10px;background:var(--surface2);border-radius:20px;border:1px solid var(--border);">● 0 active</span>
+    <button class="btn btn-ghost btn-sm" onclick="location.href='/'">← Outbound</button>
+    <button class="btn btn-ghost btn-sm" onclick="location.href='/admin'">⚡ Admin</button>
+    <button class="btn btn-ghost btn-sm" onclick="refreshStats()">⟳ Refresh</button>
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon">📞</div>
+      <div class="stat-label">Total Inbound</div>
+      <div class="stat-value" id="s-total">—</div>
+    </div>
+    <div class="stat-card g">
+      <div class="stat-icon">📅</div>
+      <div class="stat-label">Today</div>
+      <div class="stat-value" id="s-today">—</div>
+    </div>
+    <div class="stat-card b">
+      <div class="stat-icon">🤖</div>
+      <div class="stat-label">Active Sessions</div>
+      <div class="stat-value" id="s-active">—</div>
+    </div>
+    <div class="stat-card r">
+      <div class="stat-icon">🔁</div>
+      <div class="stat-label">Escalated</div>
+      <div class="stat-value" id="s-escalated">—</div>
+    </div>
+    <div class="stat-card y">
+      <div class="stat-icon">💬</div>
+      <div class="stat-label">WhatsApp Sent</div>
+      <div class="stat-value" id="s-wa">—</div>
+    </div>
+  </div>
+
+  <!-- Left: Simulator + History -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Call Simulator -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📞 Live Call Simulator</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="endBtn" onclick="endCall()" style="display:none;">End Call</button>
+          <button class="btn btn-cyan btn-sm" id="startBtn" onclick="startCall()">▶ Start Inbound Call</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="call-status idle" id="callStatus">
+          <span class="pulse"></span> <span id="callStatusText">No active call — click Start to simulate</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Caller Phone</label>
+            <input id="callerPhone" placeholder="+91 9876543210" value="+91 9876543210">
+          </div>
+          <div class="form-group">
+            <label>Language</label>
+            <select id="callLang">
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
+              <option value="mr">Marathi</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="conversation" id="conversation">
+          <div class="msg msg-system">Conversation will appear here</div>
+        </div>
+
+        <div class="input-row">
+          <input id="userInput" placeholder="Type a message as the caller…" onkeydown="if(event.key==='Enter')sendMsg()" disabled>
+          <button class="btn btn-primary btn-sm" id="sendBtn" onclick="sendMsg()" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tools Log -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">🔧 Tools Called</span>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('toolsLog').innerHTML=''">Clear</button>
+      </div>
+      <div class="panel-body" style="padding:0 0 4px;">
+        <div class="tools-log" id="toolsLog" style="padding:12px 16px;">
+          <div style="color:var(--muted);font-size:12px;text-align:center;padding:20px;">Tool calls will appear here during the call</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Call History -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📋 Recent Calls</span>
+        <button class="btn btn-ghost btn-sm" onclick="refreshStats()">⟳</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Caller</th><th>Topics</th><th>Language</th><th>Status</th><th>Escalated</th><th>WA</th><th>Time</th></tr></thead>
+          <tbody id="historyTable"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right Sidebar -->
+  <div class="sidebar">
+
+    <!-- Knowledge Base Search -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">📚 Knowledge Base</span>
+        <span id="kb-count" style="font-size:11px;color:var(--muted);">— entries</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input id="kbSearch" placeholder="Search KB…" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;" onkeydown="if(event.key==='Enter')searchKB()">
+          <button class="btn btn-ghost btn-sm" onclick="searchKB()">🔍</button>
+        </div>
+        <div id="kbResults">
+          <div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">Type to search knowledge base</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs: Packages / Events -->
+    <div class="panel">
+      <div class="panel-header" style="padding-bottom:0;border-bottom:none;">
+        <div class="tabs" style="margin-bottom:0;border-bottom:none;width:100%;">
+          <div class="tab active" id="tab-pkg" onclick="switchTab('pkg')">💎 Packages</div>
+          <div class="tab" id="tab-evt" onclick="switchTab('evt')">🎉 Events</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="pkgPanel"></div>
+        <div id="evtPanel" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Inbound System Info -->
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">🤖 Agent Info</span></div>
+      <div class="panel-body" style="font-size:12px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Agent Name</span><strong>Priya</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">AI Model</span><strong>Gemini 2.5 Flash</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Function Calls</span><strong>9 tools</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">Languages</span><strong>EN · HI · MR</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">WhatsApp</span><strong style="color:var(--green);">● Active (sandbox)</strong></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">TTS (Voice)</span><strong>ElevenLabs</strong></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+let currentCallSid = null;
+let callActive = false;
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  refreshStats();
+  loadPackages();
+  loadEvents();
+  setInterval(refreshStats, 20000);
+});
+
+// ── Stats ──
+async function refreshStats() {
+  try {
+    const d = await fetchJSON('/api/inbound/stats');
+    setText('s-total', d.total ?? 0);
+    setText('s-today', d.today ?? 0);
+    setText('s-active', d.activeSessions ?? 0);
+    setText('s-escalated', d.escalated ?? 0);
+    setText('s-wa', d.whatsappSent ?? 0);
+    setText('kb-count', `${d.kbCount ?? 0} entries`);
+    document.getElementById('live-badge').textContent = `● ${d.activeSessions ?? 0} active`;
+    renderHistory(d.recent || []);
+  } catch (e) {
+    console.error('Stats error:', e);
+  }
+}
+
+function renderHistory(rows) {
+  const tbody = document.getElementById('historyTable');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">No calls yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    let topics = '';
+    try { topics = JSON.parse(r.detected_topics || '[]').join(', ') || '—'; } catch (_) { topics = '—'; }
+    const statusColor = r.status === 'completed' ? 'badge-green' : r.status === 'active' ? 'badge-cyan' : 'badge-gray';
+    return `<tr>
+      <td style="font-size:11px;font-family:monospace;">${esc(r.caller_number || 'Unknown')}</td>
+      <td style="color:var(--muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(topics)}</td>
+      <td><span class="badge badge-purple">${(r.detected_language || 'en').toUpperCase()}</span></td>
+      <td><span class="badge ${statusColor}">${esc(r.status)}</span></td>
+      <td>${r.escalated ? '<span class="badge badge-red">Yes</span>' : '<span class="badge badge-gray">No</span>'}</td>
+      <td>${r.whatsapp_sent ? '<span class="badge badge-green">✓</span>' : '—'}</td>
+      <td style="color:var(--muted);font-size:11px;">${fmtDate(r.created_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Call Simulation ──
+async function startCall() {
+  const phone = document.getElementById('callerPhone').value.trim() || '+91 9876543210';
+  const lang = document.getElementById('callLang').value;
+
+  setCallStatus('active', '⏳ Connecting…');
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('conversation').innerHTML = '';
+  document.getElementById('toolsLog').innerHTML = '';
+
+  try {
+    const d = await fetchJSON('/api/inbound/start', 'POST', { callerPhone: phone, language: lang });
+    currentCallSid = d.callSid;
+    callActive = true;
+
+    setCallStatus('active', `🟢 Active · ${esc(phone)} · SID: ${d.callSid.slice(-8)}`);
+    addMessage('agent', d.text);
+    addIntent(d.intent, d.language);
+
+    document.getElementById('userInput').disabled = false;
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('endBtn').style.display = 'inline-flex';
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('userInput').focus();
+    toast('Inbound call started', 'success');
+    await refreshStats();
+  } catch (e) {
+    setCallStatus('idle', 'Failed to start call');
+    document.getElementById('startBtn').disabled = false;
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+async function sendMsg() {
+  const input = document.getElementById('userInput');
+  const msg = input.value.trim();
+  if (!msg || !callActive) return;
+  input.value = '';
+
+  addMessage('user', msg);
+  document.getElementById('sendBtn').disabled = true;
+
+  try {
+    const d = await fetchJSON('/api/inbound/respond', 'POST', { callSid: currentCallSid, message: msg });
+    addMessage('agent', d.text);
+    addIntent(d.intent, d.language);
+    if (d.toolsCalled && d.toolsCalled.length) {
+      d.toolsCalled.forEach(t => addToolLog(t, '✓ executed'));
+    }
+    if (d.intent === 'escalate' || d.intent === 'resolved') {
+      toast(`Call intent: ${d.intent}`, 'success');
+    }
+  } catch (e) {
+    addMessage('system', 'Error: ' + e.message);
+    toast('Error: ' + e.message, 'error');
+  } finally {
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('userInput').focus();
+  }
+}
+
+async function endCall() {
+  if (!currentCallSid) return;
+  try {
+    await fetchJSON('/api/inbound/end', 'POST', { callSid: currentCallSid });
+    toast('Call ended', 'success');
+  } catch (_) {}
+  callActive = false;
+  currentCallSid = null;
+  setCallStatus('ended', '⏹ Call ended');
+  document.getElementById('userInput').disabled = true;
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('endBtn').style.display = 'none';
+  document.getElementById('startBtn').style.display = 'inline-flex';
+  document.getElementById('startBtn').disabled = false;
+  addMessage('system', '— Call ended —');
+  await refreshStats();
+}
+
+function setCallStatus(state, text) {
+  const el = document.getElementById('callStatus');
+  el.className = 'call-status ' + state;
+  document.getElementById('callStatusText').textContent = text;
+}
+
+function addMessage(role, text) {
+  const conv = document.getElementById('conversation');
+  const el = document.createElement('div');
+  el.className = `msg msg-${role}`;
+  if (role === 'agent') el.innerHTML = `<div class="msg-label">🤖 Priya</div>${esc(text)}`;
+  else if (role === 'user') el.innerHTML = `<div class="msg-label">👤 Caller</div>${esc(text)}`;
+  else el.innerHTML = text;
+  conv.appendChild(el);
+  conv.scrollTop = conv.scrollHeight;
+}
+
+function addIntent(intent, lang) {
+  if (!intent || intent === 'ongoing') return;
+  const conv = document.getElementById('conversation');
+  const el = document.createElement('div');
+  el.className = 'msg msg-system';
+  el.textContent = `Intent: ${intent} · ${(lang||'en').toUpperCase()}`;
+  conv.appendChild(el);
+  conv.scrollTop = conv.scrollHeight;
+}
+
+function addToolLog(name, result) {
+  const log = document.getElementById('toolsLog');
+  if (log.querySelector('[data-empty]')) log.innerHTML = '';
+  const el = document.createElement('div');
+  el.className = 'tool-item';
+  el.innerHTML = `<span class="tool-name">${esc(name)}</span><span class="tool-result">${esc(result)}</span>`;
+  log.appendChild(el);
+}
+
+// ── KB Search ──
+async function searchKB() {
+  const q = document.getElementById('kbSearch').value.trim();
+  if (!q) return;
+  const res = document.getElementById('kbResults');
+  res.innerHTML = '<div class="spinner" style="margin:16px auto;display:block;"></div>';
+  try {
+    const rows = await fetchJSON(`/api/inbound/knowledge/search?q=${encodeURIComponent(q)}`);
+    if (!rows.length) {
+      res.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">No results found</div>';
+      return;
+    }
+    res.innerHTML = rows.map(r => `
+      <div class="kb-result">
+        <span class="kb-cat">${esc(r.category)}</span>
+        <div class="kb-question">${esc(r.question)}</div>
+        <div class="kb-answer">${esc(r.answer)}</div>
+      </div>
+    `).join('');
+  } catch {
+    res.innerHTML = '<div style="color:var(--red);font-size:12px;text-align:center;padding:16px;">Search failed</div>';
+  }
+}
+
+// ── Packages / Events ──
+async function loadPackages() {
+  const panel = document.getElementById('pkgPanel');
+  try {
+    const pkgs = await fetchJSON('/api/inbound/packages');
+    panel.innerHTML = pkgs.map(p => `
+      <div class="pkg-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="pkg-name">${esc(p.name)}</div>
+          <div class="pkg-price">₹${p.price}</div>
+        </div>
+        <div class="pkg-desc">${esc(p.description || '')}</div>
+      </div>
+    `).join('') || '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">No packages</div>';
+  } catch {
+    panel.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px;">Failed to load</div>';
+  }
+}
+
+async function loadEvents() {
+  const panel = document.getElementById('evtPanel');
+  try {
+    const evts = await fetchJSON('/api/inbound/events');
+    panel.innerHTML = evts.map(e => `
+      <div class="pkg-card">
+        <span class="evt-platform">${esc(e.platform || 'event')}</span>
+        <div class="pkg-name">${esc(e.title)}</div>
+        <div class="pkg-desc">${esc(e.description || '')}</div>
+        ${e.event_date ? `<div style="font-size:11px;color:var(--cyan);margin-top:4px;">📅 ${esc(e.event_date)}</div>` : ''}
+      </div>
+    `).join('') || '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">No events</div>';
+  } catch {
+    panel.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px;">Failed to load</div>';
+  }
+}
+
+function switchTab(tab) {
+  document.getElementById('tab-pkg').classList.toggle('active', tab === 'pkg');
+  document.getElementById('tab-evt').classList.toggle('active', tab === 'evt');
+  document.getElementById('pkgPanel').style.display = tab === 'pkg' ? '' : 'none';
+  document.getElementById('evtPanel').style.display = tab === 'evt' ? '' : 'none';
+}
+
+// ── Utilities ──
+async function fetchJSON(url, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) { const e = await res.json().catch(() => ({ error: res.statusText })); throw new Error(e.error || res.statusText); }
+  return res.json();
+}
+
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(s) { if (!s) return '—'; try { return new Date(s).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }); } catch { return s; } }
+
+function toast(msg, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `${type === 'success' ? '✅' : '❌'} ${esc(msg)}`;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+</script>
+</body>
+</html>
