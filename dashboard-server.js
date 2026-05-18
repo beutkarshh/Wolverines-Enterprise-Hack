@@ -37,6 +37,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 if (fs.existsSync(path.join(__dirname, 'ai-caller', 'public'))) {
   app.use(express.static(path.join(__dirname, 'ai-caller', 'public')));
 }
+// Serve generated TTS audio files — Exotel fetches these via <Play> tag
+app.use('/audio', express.static(path.join(__dirname, 'audio')));
+// Also check ai-caller/audio sub-path
+app.use('/audio', express.static(path.join(__dirname, 'ai-caller', 'audio')));
 
 // Enhanced State Management
 let contacts = [];
@@ -768,11 +772,72 @@ app.get('/', (req, res) => {
 
 app.use(express.urlencoded({ extended: true })); // For Exotel form data
 
-// Webhook: Called when student answers the phone
-app.post('/webhook/exotel-call-connect', async (req, res) => {
-  console.log('🔗 Exotel call connected:', req.body);
-  const callSid = req.body.CallSid;
+// Helper: merge query + body params (Exotel sends data in either/both)
+function exotelParams(req) {
+  return { ...req.query, ...req.body };
+}
 
+// Webhook: Dial Whom — Exotel Landing Flow Connect applet calls this to get the phone number to dial
+app.all('/webhook/exotel-dial-whom', (req, res) => {
+  const data = exotelParams(req);
+  console.log('📞 Dial Whom hit:', req.method, JSON.stringify(data));
+  let phone = '08379955419'; // default fallback
+  if (exotelCaller && exotelCaller.activeCalls && exotelCaller.activeCalls.size > 0) {
+    for (const [sid, session] of exotelCaller.activeCalls.entries()) {
+      if (session.studentPhone) { phone = session.studentPhone; break; }
+    }
+  }
+  console.log('📞 Returning number:', phone);
+  res.set('Content-Type', 'text/plain');
+  res.send(phone);
+});
+
+// Webhook: Connect params (JSON format for Exotel Connect applet dynamic URL)
+app.all('/webhook/exotel-connect-params', (req, res) => {
+  const data = exotelParams(req);
+  console.log('🔌 Connect params hit:', req.method, JSON.stringify(data));
+  let phone = '08379955419';
+  if (exotelCaller && exotelCaller.activeCalls && exotelCaller.activeCalls.size > 0) {
+    for (const [sid, session] of exotelCaller.activeCalls.entries()) {
+      if (session.studentPhone) { phone = session.studentPhone; break; }
+    }
+  }
+  console.log('🔌 Connect params returning:', phone);
+  res.json({ destination: { type: 'pstn', phoneNumbers: [phone] } });
+});
+
+// Webhook: Simple test — confirm Exotel can reach our server (no TTS, no AI)
+app.all('/webhook/exotel-test', (req, res) => {
+  const data = exotelParams(req);
+  console.log('TEST WEBHOOK HIT:', req.method, JSON.stringify(data));
+  const base = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
+  res.set('Content-Type', 'application/xml');
+  // No <Hangup/> — instead gather input so call stays alive
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="woman">Hello! I am Priya from Campus Dekho. I am calling about MHT CET preparation events in your city. Please press 1 to know more, or press 2 to call back later.</Say>
+  <Gather timeout="10" numDigits="1" action="${base}/webhook/exotel-gather" method="POST">
+  </Gather>
+  <Redirect method="POST">${base}/webhook/exotel-timeout</Redirect>
+</Response>`);
+});
+
+// Webhook: Called by Exotel Landing Flow
+// CallType="call-attempt" = Passthru BEFORE student is dialed → return 200 OK so flow continues
+// CallType="call-connected" = student just answered → generate TTS greeting
+app.all('/webhook/exotel-call-connect', async (req, res) => {
+  const data = exotelParams(req);
+  const callType = data.CallType || data.call_type || '';
+  const callSid = data.CallSid || data.call_sid;
+  console.log(`🔗 call-connect HIT type=${callType} method=${req.method} sid=${callSid}`);
+
+  // Passthru notification — student not dialed yet, just acknowledge
+  if (callType === 'call-attempt' || callType === 'call-initiation') {
+    console.log('📋 Passthru (call-attempt) — returning 200 OK, flow will continue to Connect applet');
+    return res.status(200).send('OK');
+  }
+
+  // Student answered — generate and play AI greeting
   if (exotelCaller) {
     await exotelCaller.handleCallConnect(callSid, req, res);
   } else {
@@ -781,11 +846,12 @@ app.post('/webhook/exotel-call-connect', async (req, res) => {
 });
 
 // Webhook: Handles student input (DTMF digits or speech)
-app.post('/webhook/exotel-gather', async (req, res) => {
-  console.log('👂 Exotel gather input:', req.body);
-  const callSid = req.body.CallSid;
-  const digits = req.body.Digits;
-  const speechResult = req.body.SpeechResult;
+app.all('/webhook/exotel-gather', async (req, res) => {
+  const data = exotelParams(req);
+  console.log('👂 Exotel gather HIT:', req.method, JSON.stringify(data));
+  const callSid = data.CallSid || data.call_sid;
+  const digits = data.Digits || data.digits;
+  const speechResult = data.SpeechResult || data.speech_result;
 
   if (exotelCaller) {
     await exotelCaller.handleGather(callSid, digits, speechResult, req, res);
@@ -795,9 +861,10 @@ app.post('/webhook/exotel-gather', async (req, res) => {
 });
 
 // Webhook: Handles call timeouts
-app.post('/webhook/exotel-timeout', async (req, res) => {
-  console.log('⏰ Exotel call timeout:', req.body);
-  const callSid = req.body.CallSid;
+app.all('/webhook/exotel-timeout', async (req, res) => {
+  const data = exotelParams(req);
+  console.log('⏰ Exotel timeout HIT:', req.method, JSON.stringify(data));
+  const callSid = data.CallSid || data.call_sid;
 
   if (exotelCaller) {
     exotelCaller.handleTimeout(callSid, req, res);
@@ -807,16 +874,34 @@ app.post('/webhook/exotel-timeout', async (req, res) => {
 });
 
 // Webhook: Call status updates (answered, completed, failed, etc.)
-app.post('/webhook/exotel-call-status', (req, res) => {
-  console.log('📊 Exotel call status update:', req.body);
-  const callSid = req.body.CallSid;
-  const callStatus = req.body.CallStatus;
-  const callDuration = req.body.CallDuration;
+app.all('/webhook/exotel-call-status', (req, res) => {
+  const data = exotelParams(req);
+  console.log('📊 Exotel status HIT:', req.method, 'BODY:', JSON.stringify(req.body), 'QUERY:', JSON.stringify(req.query));
+  const callSid = data.CallSid || data.call_sid || data.Sid;
+  const callStatus = data.CallStatus || data.call_status || data.Status || data.status;
+  const callDuration = data.CallDuration || data.call_duration || data.Duration || data.duration;
+  console.log(`📊 Call ${callSid} status: ${callStatus}, duration: ${callDuration}s`);
 
   if (exotelCaller) {
     exotelCaller.handleCallStatus(callSid, callStatus, callDuration, req, res);
   } else {
     res.status(200).send('OK');
+  }
+});
+
+// API: Test call — uses simple XML (no TTS/AI), just confirms phone rings
+app.post('/api/exotel/test-call', async (req, res) => {
+  const { phone } = req.body;
+  if (!exotelCaller) return res.status(503).json({ error: 'Exotel caller not initialized' });
+  if (!phone) return res.status(400).json({ error: 'Phone number required' });
+
+  try {
+    const normalized = exotelCaller.normalizePhone(phone);
+    const call = await exotelCaller.makeCall(phone, 'Test', true); // true = test mode
+    res.json({ success: true, callSid: call.Sid, normalizedPhone: normalized, message: `Test call to ${normalized}` });
+  } catch (error) {
+    console.error('❌ Test call failed:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

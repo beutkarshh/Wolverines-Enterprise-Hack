@@ -18,7 +18,8 @@ class ExotelCaller {
       console.log('EXOTEL_FROM_NUMBER=your_exotel_number');
     }
 
-    this.baseUrl = `https://${this.accountSid}:${this.authToken}@api.exotel.com/v1/Accounts/${this.accountSid}`;
+    this.apiKey = process.env.EXOTEL_API_KEY;
+    this.baseUrl = `https://${this.apiKey}:${this.authToken}@api.exotel.com/v1/Accounts/${this.accountSid}`;
 
     // Active call sessions
     this.activeCalls = new Map();
@@ -26,19 +27,38 @@ class ExotelCaller {
     console.log('📞 Exotel integration initialized');
   }
 
+  // Normalize to Exotel's required format for India: 0XXXXXXXXXX (11 digits)
+  normalizePhone(phone) {
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length === 12 && digits.startsWith('91')) return '0' + digits.slice(2);
+    if (digits.length === 10) return '0' + digits;
+    if (digits.length === 11 && digits.startsWith('0')) return digits;
+    return digits; // best-effort fallback
+  }
+
   // Make outbound call to student
-  async makeCall(studentPhone, studentName = 'Student') {
+  // testMode=true uses a simple "Hello, test" XML instead of TTS/AI
+  async makeCall(studentPhone, studentName = 'Student', testMode = false) {
     if (!this.accountSid) {
       throw new Error('Exotel not configured');
     }
 
+    const normalizedTo = this.normalizePhone(studentPhone);
+    console.log(`📱 Phone normalization: ${studentPhone} → ${normalizedTo}`);
+
+    const base = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
+    const connectUrl = testMode
+      ? `${base}/webhook/exotel-test`
+      : `${base}/webhook/exotel-call-connect`;
+    console.log(`📞 Using Url: ${connectUrl} (testMode=${testMode})`);
+
     const callData = querystring.stringify({
       From: this.fromNumber,
-      To: studentPhone,
-      TimeLimit: '1800', // 30 minutes max
-      TimeOut: '30', // Ring for 30 seconds
-      Url: `${process.env.BASE_URL || 'http://localhost:3001'}/webhook/exotel-call-connect`,
-      StatusCallback: `${process.env.BASE_URL || 'http://localhost:3001'}/webhook/exotel-call-status`,
+      To: normalizedTo,
+      TimeLimit: '300',
+      TimeOut: '30',
+      Url: connectUrl,
+      StatusCallback: `${base}/webhook/exotel-call-status`,
       StatusCallbackMethod: 'POST'
     });
 
@@ -65,7 +85,7 @@ class ExotelCaller {
 
               // Initialize AI conversation session
               this.activeCalls.set(result.Call.Sid, {
-                studentPhone,
+                studentPhone: normalizedTo,
                 studentName,
                 aiSession: null,
                 startTime: Date.now()
@@ -91,10 +111,11 @@ class ExotelCaller {
   async handleCallConnect(callSid, req, res) {
     console.log(`🔗 Call connected: ${callSid}`);
 
-    const callSession = this.activeCalls.get(callSid);
+    let callSession = this.activeCalls.get(callSid);
     if (!callSession) {
-      console.log('❌ Unknown call session');
-      return this.endCall(res);
+      console.log('🆕 New inbound call session from webhook:', callSid);
+      callSession = { studentPhone: req.body?.From || 'unknown', studentName: 'Student', aiSession: null, startTime: Date.now() };
+      this.activeCalls.set(callSid, callSession);
     }
 
     try {
@@ -110,14 +131,16 @@ class ExotelCaller {
         './audio'
       );
 
+      const base = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
+      const cleanPath = audioPath.startsWith('/') ? audioPath : '/' + audioPath;
       // Exotel XML response to play TTS and gather input
       const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>${process.env.BASE_URL || 'http://localhost:3001'}${audioPath}</Play>
-  <Gather timeout="5" numDigits="1" action="${process.env.BASE_URL || 'http://localhost:3001'}/webhook/exotel-gather" method="POST">
+  <Play>${base}${cleanPath}</Play>
+  <Gather timeout="5" numDigits="1" action="${base}/webhook/exotel-gather" method="POST">
     <Say voice="woman">Press any key to continue or speak directly</Say>
   </Gather>
-  <Redirect method="POST">${process.env.BASE_URL || 'http://localhost:3001'}/webhook/exotel-timeout</Redirect>
+  <Redirect method="POST">${base}/webhook/exotel-timeout</Redirect>
 </Response>`;
 
       res.set('Content-Type', 'application/xml');
@@ -169,11 +192,13 @@ class ExotelCaller {
         './audio'
       );
 
+      const base2 = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
+      const clean2 = audioPath.startsWith('/') ? audioPath : '/' + audioPath;
       // Check if conversation should end
       if (aiResult.intent === 'rsvp_yes' || aiResult.intent === 'rsvp_no' || aiResult.intent === 'not_interested') {
         const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>${process.env.BASE_URL || 'http://localhost:3001'}${audioPath}</Play>
+  <Play>${base2}${clean2}</Play>
   <Say voice="woman">Thank you for your time. Have a great day!</Say>
   <Hangup/>
 </Response>`;
@@ -184,11 +209,11 @@ class ExotelCaller {
         // Continue conversation
         const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>${process.env.BASE_URL || 'http://localhost:3001'}${audioPath}</Play>
-  <Gather timeout="8" numDigits="1" action="${process.env.BASE_URL || 'http://localhost:3001'}/webhook/exotel-gather" method="POST">
+  <Play>${base2}${clean2}</Play>
+  <Gather timeout="8" numDigits="1" action="${base2}/webhook/exotel-gather" method="POST">
     <Say voice="woman">Press 1 for yes, 2 for no, 3 for more info, or speak your response</Say>
   </Gather>
-  <Redirect method="POST">${process.env.BASE_URL || 'http://localhost:3001'}/webhook/exotel-timeout</Redirect>
+  <Redirect method="POST">${base2}/webhook/exotel-timeout</Redirect>
 </Response>`;
         res.set('Content-Type', 'application/xml');
         res.send(twimlResponse);
