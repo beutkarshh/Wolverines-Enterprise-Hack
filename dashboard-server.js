@@ -803,7 +803,11 @@ app.all('/webhook/exotel-connect-params', (req, res) => {
     }
   }
   console.log('🔌 Connect params returning:', phone);
-  res.json({ destination: { type: 'pstn', phoneNumbers: [phone] } });
+  const base = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
+  res.json({
+    destination: { type: 'pstn', phoneNumbers: [phone] },
+    url: `${base}/webhook/exotel-test`
+  });
 });
 
 // Webhook: Simple test — confirm Exotel can reach our server (no TTS, no AI)
