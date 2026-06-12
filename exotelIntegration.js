@@ -1,5 +1,6 @@
 // exotelIntegration.js — Real telephony integration with Exotel for Campus Dekho
 import https from 'https';
+import path from 'path';
 import querystring from 'querystring';
 import { speak } from './voiceEngine.js';
 import { startMHTCETConversation, continueMHTCETConversation } from './geminiEngine.js';
@@ -53,8 +54,8 @@ class ExotelCaller {
     console.log(`📞 Using Url: ${connectUrl} (testMode=${testMode})`);
 
     const callData = querystring.stringify({
-      From: this.fromNumber,
-      To: normalizedTo,
+      From: normalizedTo,
+      To: this.fromNumber,
       TimeLimit: '300',
       TimeOut: '30',
       Url: connectUrl,
@@ -132,16 +133,28 @@ class ExotelCaller {
       );
 
       const base = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
-      const cleanPath = audioPath.startsWith('/') ? audioPath : '/' + audioPath;
-      // Exotel XML response to play TTS and gather input
-      const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+
+      let twimlResponse;
+      if (audioPath) {
+        // speak() returns full server path — extract just the filename for the public URL
+        const audioUrl = `${base}/audio/${path.basename(audioPath)}`;
+        twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>${base}${cleanPath}</Play>
-  <Gather timeout="5" numDigits="1" action="${base}/webhook/exotel-gather" method="POST">
-    <Say voice="woman">Press any key to continue or speak directly</Say>
+  <Play>${audioUrl}</Play>
+  <Gather timeout="8" numDigits="1" action="${base}/webhook/exotel-gather" method="POST">
   </Gather>
   <Redirect method="POST">${base}/webhook/exotel-timeout</Redirect>
 </Response>`;
+      } else {
+        // ElevenLabs failed — fall back to Exotel's built-in TTS
+        twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="woman">Hello! I am Priya from Campus Dekho. I am calling about MHT CET preparation events in your city. Are you preparing for MHT CET 2026?</Say>
+  <Gather timeout="8" numDigits="1" action="${base}/webhook/exotel-gather" method="POST">
+  </Gather>
+  <Redirect method="POST">${base}/webhook/exotel-timeout</Redirect>
+</Response>`;
+      }
 
       res.set('Content-Type', 'application/xml');
       res.send(twimlResponse);
@@ -193,12 +206,13 @@ class ExotelCaller {
       );
 
       const base2 = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
-      const clean2 = audioPath.startsWith('/') ? audioPath : '/' + audioPath;
+      const audioUrl2 = audioPath ? `${base2}/audio/${path.basename(audioPath)}` : null;
       // Check if conversation should end
       if (aiResult.intent === 'rsvp_yes' || aiResult.intent === 'rsvp_no' || aiResult.intent === 'not_interested') {
+        const playTag = audioUrl2 ? `<Play>${audioUrl2}</Play>` : `<Say voice="woman">Thank you for your time.</Say>`;
         const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>${base2}${clean2}</Play>
+  ${playTag}
   <Say voice="woman">Thank you for your time. Have a great day!</Say>
   <Hangup/>
 </Response>`;
@@ -207,11 +221,11 @@ class ExotelCaller {
         this.activeCalls.delete(callSid);
       } else {
         // Continue conversation
+        const playTag2 = audioUrl2 ? `<Play>${audioUrl2}</Play>` : `<Say voice="woman">Could you please repeat that?</Say>`;
         const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>${base2}${clean2}</Play>
+  ${playTag2}
   <Gather timeout="8" numDigits="1" action="${base2}/webhook/exotel-gather" method="POST">
-    <Say voice="woman">Press 1 for yes, 2 for no, 3 for more info, or speak your response</Say>
   </Gather>
   <Redirect method="POST">${base2}/webhook/exotel-timeout</Redirect>
 </Response>`;
