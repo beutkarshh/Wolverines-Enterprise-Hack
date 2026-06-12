@@ -54,8 +54,8 @@ class ExotelCaller {
     console.log(`📞 Using Url: ${connectUrl} (testMode=${testMode})`);
 
     const callData = querystring.stringify({
-      From: normalizedTo,
-      To: this.fromNumber,
+      From: this.fromNumber,
+      To: normalizedTo,
       TimeLimit: '300',
       TimeOut: '30',
       Url: connectUrl,

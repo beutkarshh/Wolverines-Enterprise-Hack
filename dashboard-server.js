@@ -805,8 +805,11 @@ app.all('/webhook/exotel-connect-params', (req, res) => {
   console.log('🔌 Connect params returning:', phone);
   const base = (process.env.BASE_URL || 'http://localhost:3001').replace(/\/$/, '');
   res.json({
-    destination: { type: 'pstn', phoneNumbers: [phone] },
-    url: `${base}/webhook/exotel-call-connect`
+    to: phone,
+    timeLimit: 300,
+    timeOut: 30,
+    url: `${base}/webhook/exotel-call-connect`,
+    statusCallback: `${base}/webhook/exotel-call-status`
   });
 });
 
